@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedidos a domicilio | Café Neruda</title>
+  <style>
+    :root {
+      --brand: #6b3f2a;
+      --brand-dark: #4d2b1d;
+      --cream: #fbf7f1;
+      --ink: #29231f;
+      --muted: #766d66;
+      --line: #e8dfd7;
+      --green: #168b52;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #fff;
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    /* Botón solicitado en la esquina superior izquierda */
+    .delivery-trigger {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--brand);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 5px 18px #0002;
+      transition: background .2s, transform .2s;
+    }
+    .delivery-trigger:hover { background: var(--brand-dark); transform: translateY(-1px); }
+    .delivery-trigger svg { width: 19px; height: 19px; }
+
+    /* Ventana de conversación */
+    .chat-window {
+      position: fixed;
+      top: 76px;
+      left: 18px;
+      z-index: 20;
+      display: none;
+      flex-direction: column;
+      width: min(370px, calc(100vw - 36px));
+      height: min(590px, calc(100vh - 100px));
+      min-height: 390px;
+      overflow: hidden;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 14px 45px #0002;
+    }
+    .chat-window.open { display: flex; }
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 16px;
+      background: var(--brand);
+      color: white;
+    }
+    .header-info { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 37px;
+      height: 37px;
+      border-radius: 50%;
+      background: #ffffff24;
+      font-size: 19px;
+    }
+    .header-title { font-size: 14px; font-weight: 700; }
+    .header-subtitle { margin-top: 3px; font-size: 11px; opacity: .85; }
+    .close-chat {
+      border: 0;
+      background: transparent;
+      color: white;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .chat-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px 12px;
+      background: var(--cream);
+    }
+    .message {
+      width: fit-content;
+      max-width: 88%;
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border-radius: 13px;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .bot-message {
+      background: white;
+      border: 1px solid var(--line);
+      border-top-left-radius: 4px;
+    }
+    .user-message {
+      margin-left: auto;
+      background: #e4f3e9;
+      border-top-right-radius: 4px;
+    }
+    .chat-footer {
+      padding: 11px;
+      background: white;
+      border-top: 1px solid var(--line);
+    }
+    .quick-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 9px;
+    }
+    .quick-options button {
+      padding: 8px 11px;
+      border: 1px solid #cbb7a8;
+      border-radius: 999px;
+      background: white;
+      color: var(--brand-dark);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .quick-options button:hover { background: #f6eee7; }
+    .input-row { display: flex; gap: 8px; }
+    .chat-input {
+      min-width: 0;
+      flex: 1;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      outline: none;
+      font-size: 13px;
+    }
+    .chat-input:focus { border-color: var(--brand); }
+    .send-button {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border: 0;
+      border-radius: 50%;
+      background: var(--brand);
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .send-button:disabled { opacity: .45; cursor: not-allowed; }
+    .small-note {
+      margin: 8px 3px 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+    .restart-button {
+      margin-top: 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--brand-dark);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    @media (max-width: 480px) {
+      .delivery-trigger { top: 12px; left: 12px; }
+      .chat-window { top: 66px; left: 12px; width: calc(100vw - 24px); height: min(600px, calc(100vh - 82px)); }
+    }
+  </style>
+</head>
+<body>
+
+  <button class="delivery-trigger" id="openChat" type="button" aria-label="Pedir a domicilio">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 6h2l2.1 9.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 1.9-1.4L22 9H7"
+        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="10" cy="20" r="1.4" fill="currentColor"/>
+      <circle cx="18" cy="20" r="1.4" fill="currentColor"/>
+    </svg>
+    Pedidos a domicilio
+  </button>
+
+  <section class="chat-window" id="chatWindow" aria-label="Chat de pedidos" aria-hidden="true">
+    <header class="chat-header">
+      <div class="header-info">
+        <div class="avatar">☕</div>
+        <div>
+          <div class="header-title">Café Neruda</div>
+          <div class="header-subtitle">Asistente de pedidos · Prototipo</div>
+        </div>
+      </div>
+      <button class="close-chat" id="closeChat" type="button" aria-label="Cerrar chat">×</button>
+    </header>
+
+    <main class="chat-body" id="chatBody" aria-live="polite"></main>
+
+    <footer class="chat-footer">
+      <div class="quick-options" id="quickOptions"></div>
+      <form class="input-row" id="chatForm">
+        <input class="chat-input" id="chatInput" type="text" placeholder="Escribe tu respuesta..." autocomplete="off" required>
+        <button class="send-button" id="sendButton" type="submit" aria-label="Enviar">➤</button>
+      </form>
+      <p class="small-note">Prototipo de demostración. Revisa tu pedido en el resumen antes de enviarlo por WhatsApp.</p>
+    </footer>
+  </section>
+
+  <script>
+    const WHATSAPP_NUMBER = "522741416785"; // México: +52 274 141 6785
+
+    const chatWindow = document.getElementById("chatWindow");
+    const chatBody = document.getElementById("chatBody");
+    const chatInput = document.getElementById("chatInput");
+    const chatForm = document.getElementById("chatForm");
+    const quickOptions = document.getElementById("quickOptions");
+
+    const questions = [
+      { key: "items", question: "¡Hola! 👋 Soy el asistente de Café Neruda. Te ayudaré a preparar tu pedido.\n\n¿Qué deseas ordenar? Escribe los productos, cantidades y, si aplica, sus especificaciones.", placeholder: "Ej. 2 cafés americanos y 1 sándwich" },
+      { key: "name", question: "¡Perfecto! ¿A nombre de quién registramos el pedido?", placeholder: "Tu nombre" },
+      { key: "phone", question: "¿A qué número podemos contactarte si necesitamos aclarar algo?", placeholder: "Tu número de teléfono", inputmode: "tel" },
+      { key: "address", question: "¿Cuál es la dirección completa de entrega? Incluye calle, número y colonia.", placeholder: "Calle, número y colonia" },
+      { key: "references", question: "¿Tienes alguna referencia para encontrar tu domicilio? Si no, escribe “Sin referencias”.", placeholder: "Ej. Casa color azul, frente al parque" },
+      { key: "payment", question: "¿Cuál será tu método de pago?", placeholder: "Selecciona una opción", options: ["Efectivo", "Transferencia", "Pago con tarjeta al recibir"] },
+      { key: "change", question: "Si pagarás en efectivo, ¿necesitas cambio? Si no aplica, escribe “No aplica”.", placeholder: "Ej. Cambio de $500 / No aplica" },
+      { key: "notes", question: "¿Alguna indicación adicional para tu pedido? Si no tienes, escribe “Ninguna”.", placeholder: "Indicaciones adicionales" }
+    ];
+
+    let answers = {};
+    let step = 0;
+    let finished = false;
+
+    function addMessage(text, who = "bot") {
+      const message = document.createElement("div");
+      message.className = `message ${who === "user" ? "user-message" : "bot-message"}`;
+      message.textContent = text;
+      chatBody.appendChild(message);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function showOptions(options = []) {
+      quickOptions.innerHTML = "";
+      options.forEach(option => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = option;
+        button.addEventListener("click", () => submitAnswer(option));
+        quickOptions.appendChild(button);
+      });
+    }
+
+    function askQuestion() {
+      if (step >= questions.length) {
+        showSummary();
+        return;
+      }
+      const current = questions[step];
+      addMessage(current.question);
+      chatInput.placeholder = current.placeholder || "Escribe tu respuesta...";
+      chatInput.inputMode = current.inputmode || "text";
+      showOptions(current.options || []);
+      chatInput.focus();
+    }
+
+    function submitAnswer(value) {
+      const cleanValue = value.trim();
+      if (!cleanValue || finished) return;
+      addMessage(cleanValue, "user");
+      answers[questions[step].key] = cleanValue;
+      step++;
+      chatInput.value = "";
+      showOptions();
+      window.setTimeout(askQuestion, 250);
+    }
+
+    function showSummary() {
+      finished = true;
+      const summary =
+`🛵 *PEDIDO A DOMICILIO – CAFÉ NERUDA*
+
+🍽️ *Pedido:* ${answers.items}
+👤 *Nombre:* ${answers.name}
+📞 *Teléfono:* ${answers.phone}
+📍 *Dirección:* ${answers.address}
+🧭 *Referencias:* ${answers.references}
+💳 *Método de pago:* ${answers.payment}
+💵 *Cambio:* ${answers.change}
+📝 *Indicaciones:* ${answers.notes}
+
+Por favor, confirmen la disponibilidad, costo de envío y total de mi pedido.`;
+
+      answers.summary = summary;
+      addMessage("¡Listo! Este es el resumen de tu pedido. Revísalo y, si todo está correcto, presiona «Enviar pedido por WhatsApp».");
+      addMessage(summary);
+      quickOptions.innerHTML = "";
+
+      const send = document.createElement("button");
+      send.type = "button";
+      send.textContent = "Enviar pedido por WhatsApp";
+      send.style.cssText = "width:100%;padding:12px;border:0;border-radius:10px;background:#168b52;color:white;font-weight:700;cursor:pointer;";
+      send.addEventListener("click", () => {
+        const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(summary)}`;
+        window.open(url, "_blank", "noopener,noreferrer");
+      });
+      quickOptions.appendChild(send);
+
+      const restart = document.createElement("button");
+      restart.type = "button";
+      restart.className = "restart-button";
+      restart.textContent = "Iniciar otro pedido";
+      restart.addEventListener("click", resetChat);
+      quickOptions.appendChild(restart);
+
+      chatInput.disabled = true;
+      document.getElementById("sendButton").disabled = true;
+    }
+
+    function resetChat() {
+      answers = {};
+      step = 0;
+      finished = false;
+      chatBody.innerHTML = "";
+      chatInput.disabled = false;
+      document.getElementById("sendButton").disabled = false;
+      askQuestion();
+    }
+
+    chatForm.addEventListener("submit", event => {
+      event.preventDefault();
+      submitAnswer(chatInput.value);
+    });
+
+    document.getElementById("openChat").addEventListener("click", () => {
+      chatWindow.classList.add("open");
+      chatWindow.setAttribute("aria-hidden", "false");
+      if (chatBody.children.length === 0) askQuestion();
+    });
+
+    document.getElementById("closeChat").addEventListener("click", () => {
+      chatWindow.classList.remove("open");
+      chatWindow.setAttribute("aria-hidden", "true");
+    });
+  </script>
+</body>
+</html>
